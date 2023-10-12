@@ -3,10 +3,13 @@ pragma solidity ^0.8.13;
 
 import "solmate/tokens/ERC721.sol";
 import "solmate/tokens/ERC20.sol";
+import {console2} from "forge-std/Test.sol";
 import {SignUtils} from "./libraries/SignUtils.sol";
-import {fractionToken} from "./ERC20Mock.sol";
+import {FractionToken} from "./ERC20Mock.sol";
 
 contract Marketplace {
+    FractionToken fractionToken;
+
     struct Order {
         address token;
         uint256 tokenId;
@@ -16,6 +19,7 @@ contract Marketplace {
         uint88 deadline;
         address owner;
         bool active;
+        address fractionToken;
         uint256 fractionCount;
         uint256 fractionPrice;
     }
@@ -79,10 +83,13 @@ contract Marketplace {
         li.active = true;
         li.fractionCount = l.fractionCount;
         li.fractionPrice = l.fractionPrice;
+        li.fractionToken = l.fractionToken;
 
         // Mint the equivalent of the amount of the token in ERC20 tokens
-        fractionToken(order.token).mint(
-            address(this),
+        console2.logAddress(address(this));
+        console2.logAddress(address(l.fractionToken));
+        FractionToken(l.fractionToken).mint(
+            address(li.fractionToken),
             l.fractionPrice * l.fractionCount
         );
 
@@ -93,14 +100,11 @@ contract Marketplace {
         return lId;
     }
 
-    function buyFractionNFT(uint256 _orderId) public payable {
+    function executeOrder(uint256 _orderId) public payable {
         if (_orderId >= orderId) revert OrderNotExistent();
         Order storage order = orders[_orderId];
         if (order.deadline < block.timestamp) revert OrderExpired();
         if (!order.active) revert OrderNotActive();
-        // if (order.price < msg.value) revert PriceMismatch(order.price);
-        // if (order.price != msg.value)
-        //     revert PriceNotMet(int256(order.price) - int256(msg.value));
         if (order.fractionPrice < msg.value)
             revert FractionPriceMismatch(order.fractionPrice);
         if (order.fractionPrice != msg.value)
@@ -111,17 +115,10 @@ contract Marketplace {
         // Update state
         order.active = false;
 
-        // transfer
-        // ERC721(order.token).transferFrom(
-        //     order.owner,
-        //     msg.sender,
-        //     order.tokenId
-        // );
-
         // Mint an ERC20 token to the user of the amount the NFT is for.
-        fractionToken(order.token).mint(msg.sender, msg.value);
+        FractionToken(order.fractionToken).mint(msg.sender, msg.value);
         // Burn the equivalent of the ERC20 token minted to the caller
-        fractionToken(order.token).burn(address(this), msg.value);
+        FractionToken(order.fractionToken).burn(msg.value);
 
         // ERC721(order.token).transferFrom(order.owner, msg.sender, order.tokenId);
 
@@ -133,6 +130,11 @@ contract Marketplace {
 
         // Update storage
         emit OrderExecuted(_orderId, order);
+    }
+
+    function transferMyFraction(uint256 _orderId, address _to) public {
+        Order storage order = orders[_orderId];
+        payable(_to).transfer(order.fractionPrice);
     }
 
     function editOrder(

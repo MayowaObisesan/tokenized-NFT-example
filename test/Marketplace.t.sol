@@ -3,11 +3,13 @@ pragma solidity ^0.8.13;
 
 import {Marketplace} from "../src/Marketplace.sol";
 import "../src/ERC721Mock.sol";
+import "../src/ERC20Mock.sol";
 import "./Helpers.sol";
 
 contract MarketPlaceTest is Helpers {
     Marketplace mPlace;
     OurNFT nft;
+    FractionToken fractionToken;
 
     uint256 currentOrderId;
 
@@ -22,6 +24,7 @@ contract MarketPlaceTest is Helpers {
     function setUp() public {
         mPlace = new Marketplace();
         nft = new OurNFT();
+        fractionToken = new FractionToken();
 
         (userA, privKeyA) = mkaddr("USERA");
         (userB, privKeyB) = mkaddr("USERB");
@@ -33,7 +36,10 @@ contract MarketPlaceTest is Helpers {
             signature: bytes(""),
             deadline: 0,
             owner: address(0),
-            active: false
+            active: false,
+            fractionToken: address(fractionToken),
+            fractionCount: 10,
+            fractionPrice: 2 ether
         });
 
         nft.mint(userA, 1);
@@ -175,6 +181,7 @@ contract MarketPlaceTest is Helpers {
         switchSigner(userA);
         nft.setApprovalForAll(address(mPlace), true);
         order.deadline = uint88(block.timestamp + 120 minutes);
+        // order.fractionPrice = 1.2 ether;
         order.signature = constructSig(
             order.token,
             order.tokenId,
@@ -187,7 +194,7 @@ contract MarketPlaceTest is Helpers {
         switchSigner(userB);
         vm.expectRevert(
             abi.encodeWithSelector(
-                Marketplace.PriceNotMet.selector,
+                Marketplace.FractionPriceNotMet.selector,
                 order.price - 0.9 ether
             )
         );
@@ -210,11 +217,11 @@ contract MarketPlaceTest is Helpers {
         switchSigner(userB);
         vm.expectRevert(
             abi.encodeWithSelector(
-                Marketplace.PriceMismatch.selector,
-                order.price
+                Marketplace.FractionPriceMismatch.selector,
+                order.fractionPrice
             )
         );
-        mPlace.executeOrder{value: 1.1 ether}(newOrderId);
+        mPlace.executeOrder{value: 2.1 ether}(newOrderId);
     }
 
     function testFulfilOrder() public {

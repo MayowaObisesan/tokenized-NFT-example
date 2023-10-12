@@ -44,15 +44,15 @@ abstract contract Helpers is Test {
     }
 
     function switchSigner(address _newSigner) public {
-        address foundrySigner = 0x18;
-        if (msg.sender == foundrySigner) {
-            vm.startPrank(_newSigner);
-        } else {
-            vm.stopPrank();
-            vm.startPrank(_newSigner);
-        }
-        // vm.startPrank(_newSigner);
-        // vm.deal(_newSigner, 3 ether);
-        // vm.label(_newSigner, "USER");
+        // address foundrySigner = 0x18;
+        // if (msg.sender == foundrySigner) {
+        //     vm.startPrank(_newSigner);
+        // } else {
+        //     vm.stopPrank();
+        //     vm.startPrank(_newSigner);
+        // }
+        vm.startPrank(_newSigner);
+        vm.deal(_newSigner, 50 ether);
+        vm.label(_newSigner, "USER");
     }
 }
