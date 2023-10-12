@@ -195,7 +195,7 @@ contract MarketPlaceTest is Helpers {
         vm.expectRevert(
             abi.encodeWithSelector(
                 Marketplace.FractionPriceNotMet.selector,
-                order.price - 0.9 ether
+                order.fractionPrice - 0.9 ether
             )
         );
         mPlace.executeOrder{value: 0.9 ether}(newOrderId);
@@ -240,16 +240,21 @@ contract MarketPlaceTest is Helpers {
         switchSigner(userB);
         uint256 userABalanceBefore = userA.balance;
 
-        mPlace.executeOrder{value: order.price}(newOrderId);
+        mPlace.executeOrder{value: order.fractionPrice}(newOrderId);
 
         uint256 userABalanceAfter = userA.balance;
 
         Marketplace.Order memory _order = mPlace.getOrder(newOrderId);
         assertEq(_order.price, 1 ether);
+        assertEq(_order.fractionPrice, 2 ether);
         assertEq(_order.active, false);
 
         assertEq(_order.active, false);
-        assertEq(ERC721(order.token).ownerOf(order.tokenId), userB);
-        assertEq(userABalanceAfter, userABalanceBefore + order.price);
+        assertEq(ERC721(order.token).ownerOf(order.tokenId), userA);
+        assertEq(
+            userABalanceAfter,
+            userABalanceBefore +
+                (order.fractionPrice - ((order.fractionPrice * 1) / 1000))
+        );
     }
 }
