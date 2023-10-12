@@ -19,7 +19,7 @@ contract MarketPlaceTest is Helpers {
     uint256 privKeyA;
     uint256 privKeyB;
 
-    Marketplace.Order order;
+    Marketplace.Listing order;
 
     function setUp() public {
         mPlace = new Marketplace();
@@ -29,7 +29,7 @@ contract MarketPlaceTest is Helpers {
         (userA, privKeyA) = mkaddr("USERA");
         (userB, privKeyB) = mkaddr("USERB");
 
-        order = Marketplace.Order({
+        order = Marketplace.Listing({
             token: address(nft),
             tokenId: 1,
             price: 1 ether,
@@ -99,10 +99,10 @@ contract MarketPlaceTest is Helpers {
         mPlace.createOrder(order);
     }
 
-    // EDIT Order
+    // EDIT Listing
     function testEditNonValidOrder() public {
         switchSigner(userA);
-        vm.expectRevert(Marketplace.OrderNotExistent.selector);
+        vm.expectRevert(Marketplace.ListingNotExistent.selector);
         mPlace.editOrder(1, 0, false);
     }
 
@@ -118,7 +118,7 @@ contract MarketPlaceTest is Helpers {
             order.owner,
             privKeyA
         );
-        // vm.expectRevert(Marketplace.OrderNotExistent.selector);
+        // vm.expectRevert(Marketplace.ListingNotExistent.selector);
         uint256 newOrderId = mPlace.createOrder(order);
 
         switchSigner(userB);
@@ -141,15 +141,15 @@ contract MarketPlaceTest is Helpers {
         uint256 newOrderId = mPlace.createOrder(order);
         mPlace.editOrder(newOrderId, 0.01 ether, false);
 
-        Marketplace.Order memory _order = mPlace.getOrder(newOrderId);
+        Marketplace.Listing memory _order = mPlace.getOrder(newOrderId);
         assertEq(_order.price, 0.01 ether);
         assertEq(_order.active, false);
     }
 
-    // EXECUTE Order
+    // EXECUTE Listing
     function testExecuteNonValidOrder() public {
         switchSigner(userA);
-        vm.expectRevert(Marketplace.OrderNotExistent.selector);
+        vm.expectRevert(Marketplace.ListingNotExistent.selector);
         mPlace.executeOrder(1);
     }
 
@@ -173,7 +173,7 @@ contract MarketPlaceTest is Helpers {
         uint256 newOrderId = mPlace.createOrder(order);
         mPlace.editOrder(newOrderId, 0.01 ether, false);
         switchSigner(userB);
-        vm.expectRevert(Marketplace.OrderNotActive.selector);
+        vm.expectRevert(Marketplace.ListingNotActive.selector);
         mPlace.executeOrder(newOrderId);
     }
 
@@ -244,7 +244,7 @@ contract MarketPlaceTest is Helpers {
 
         uint256 userABalanceAfter = userA.balance;
 
-        Marketplace.Order memory _order = mPlace.getOrder(newOrderId);
+        Marketplace.Listing memory _order = mPlace.getOrder(newOrderId);
         assertEq(_order.price, 1 ether);
         assertEq(_order.fractionPrice, 2 ether);
         assertEq(_order.active, false);
