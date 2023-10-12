@@ -10,7 +10,7 @@ import {FractionToken} from "./ERC20Mock.sol";
 contract Marketplace {
     FractionToken fractionToken;
 
-    struct Order {
+    struct Listing {
         address token;
         uint256 tokenId;
         uint256 price;
@@ -24,9 +24,9 @@ contract Marketplace {
         uint256 fractionPrice;
     }
 
-    mapping(uint256 => Order) public orders;
+    mapping(uint256 => Listing) public listings;
     address public admin;
-    uint256 public orderId;
+    uint256 public listingId;
 
     /* ERRORS */
     error NotOwner();
@@ -35,20 +35,20 @@ contract Marketplace {
     error DeadlineTooSoon();
     error MinDurationNotMet();
     error InvalidSignature();
-    error OrderNotExistent();
-    error OrderNotActive();
-    error OrderExpired();
+    error ListingNotExistent();
+    error ListingNotActive();
+    error ListingExpired();
     error FractionPriceNotMet(int256 difference);
     error FractionPriceMismatch(uint256 originalPrice);
 
     /* EVENTS */
-    event OrderCreated(uint256 indexed orderId, Order);
-    event OrderExecuted(uint256 indexed orderId, Order);
-    event OrderEdited(uint256 indexed orderId, Order);
+    event ListingCreated(uint256 indexed listingId, Listing);
+    event ListingExecuted(uint256 indexed listingId, Listing);
+    event ListingEdited(uint256 indexed listingId, Listing);
 
     constructor() {}
 
-    function createOrder(Order calldata l) public returns (uint256 lId) {
+    function createOrder(Listing calldata l) public returns (uint256 lId) {
         if (ERC721(l.token).ownerOf(l.tokenId) != msg.sender) revert NotOwner();
         if (!ERC721(l.token).isApprovedForAll(msg.sender, address(this)))
             revert NotApproved();
@@ -73,7 +73,7 @@ contract Marketplace {
         ) revert InvalidSignature();
 
         // append to Storage - Create a struct pointer
-        Order storage li = orders[orderId];
+        Listing storage li = listings[listingId];
         li.token = l.token;
         li.tokenId = l.tokenId;
         li.price = l.price;
@@ -86,25 +86,23 @@ contract Marketplace {
         li.fractionToken = l.fractionToken;
 
         // Mint the equivalent of the amount of the token in ERC20 tokens
-        console2.logAddress(address(this));
-        console2.logAddress(address(l.fractionToken));
         FractionToken(l.fractionToken).mint(
             address(li.fractionToken),
             l.fractionPrice * l.fractionCount
         );
 
         // Emit event
-        emit OrderCreated(orderId, l);
-        lId = orderId;
-        orderId++;
+        emit ListingCreated(listingId, l);
+        lId = listingId;
+        listingId++;
         return lId;
     }
 
     function executeOrder(uint256 _orderId) public payable {
-        if (_orderId >= orderId) revert OrderNotExistent();
-        Order storage order = orders[_orderId];
-        if (order.deadline < block.timestamp) revert OrderExpired();
-        if (!order.active) revert OrderNotActive();
+        if (_orderId >= listingId) revert ListingNotExistent();
+        Listing storage order = listings[_orderId];
+        if (order.deadline < block.timestamp) revert ListingExpired();
+        if (!order.active) revert ListingNotActive();
         if (order.fractionPrice < msg.value)
             revert FractionPriceMismatch(order.fractionPrice);
         if (order.fractionPrice != msg.value)
@@ -129,11 +127,11 @@ contract Marketplace {
         payable(order.owner).transfer(order.fractionPrice - platformAmount);
 
         // Update storage
-        emit OrderExecuted(_orderId, order);
+        emit ListingExecuted(_orderId, order);
     }
 
     function transferMyFraction(uint256 _orderId, address _to) public {
-        Order storage order = orders[_orderId];
+        Listing storage order = listings[_orderId];
         payable(_to).transfer(order.fractionPrice);
     }
 
@@ -142,17 +140,17 @@ contract Marketplace {
         uint256 _newPrice,
         bool _active
     ) public {
-        if (_orderId >= orderId) revert OrderNotExistent();
-        Order storage order = orders[_orderId];
+        if (_orderId >= listingId) revert ListingNotExistent();
+        Listing storage order = listings[_orderId];
         if (order.owner != msg.sender) revert NotOwner();
         order.price = _newPrice;
         order.active = _active;
-        emit OrderEdited(_orderId, order);
+        emit ListingEdited(_orderId, order);
     }
 
     // add getter for order
-    function getOrder(uint256 _orderId) public view returns (Order memory) {
-        // if (_orderId >= orderId)
-        return orders[_orderId];
+    function getOrder(uint256 _orderId) public view returns (Listing memory) {
+        // if (_orderId >= listingId)
+        return listings[_orderId];
     }
 }
