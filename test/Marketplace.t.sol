@@ -24,7 +24,7 @@ contract MarketPlaceTest is Helpers {
     function setUp() public {
         mPlace = new Marketplace();
         nft = new OurNFT();
-        fractionToken = new FractionToken();
+        // fractionToken = new FractionToken();
 
         (userA, privKeyA) = mkaddr("USERA");
         (userB, privKeyB) = mkaddr("USERB");
@@ -37,9 +37,12 @@ contract MarketPlaceTest is Helpers {
             deadline: 0,
             owner: address(0),
             active: false,
+            name: "FToken",
+            symbol: "FTK",
             fractionToken: address(fractionToken),
             fractionCount: 10,
-            fractionPrice: 2 ether
+            fractionPrice: 2 ether,
+            fractionBought: 0
         });
 
         nft.mint(userA, 1);
@@ -256,5 +259,29 @@ contract MarketPlaceTest is Helpers {
             userABalanceBefore +
                 (order.fractionPrice - ((order.fractionPrice * 1) / 1000))
         );
+    }
+
+    function testBoughtAllFraction() public {
+        switchSigner(userA);
+        nft.setApprovalForAll(address(mPlace), true);
+        order.fractionBought = 10;
+        order.deadline = uint88(block.timestamp + 120 minutes);
+        order.signature = constructSig(
+            order.token,
+            order.tokenId,
+            order.price,
+            order.deadline,
+            order.owner,
+            privKeyA
+        );
+        uint256 newOrderId = mPlace.createOrder(order);
+        switchSigner(userB);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Marketplace.FractionPriceMismatch.selector,
+                order.fractionPrice
+            )
+        );
+        mPlace.executeOrder{value: 2.1 ether}(newOrderId);
     }
 }

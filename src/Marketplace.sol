@@ -9,6 +9,7 @@ import {FractionToken} from "./ERC20Mock.sol";
 
 contract Marketplace {
     FractionToken fractionToken;
+    FractionToken newFT;
 
     struct Listing {
         address token;
@@ -19,9 +20,12 @@ contract Marketplace {
         uint88 deadline;
         address owner;
         bool active;
+        string name;
+        string symbol;
         address fractionToken;
         uint256 fractionCount;
         uint256 fractionPrice;
+        uint256 fractionBought;
     }
 
     mapping(uint256 => Listing) public listings;
@@ -38,8 +42,10 @@ contract Marketplace {
     error ListingNotExistent();
     error ListingNotActive();
     error ListingExpired();
+    error AllFractionBought();
     error FractionPriceNotMet(int256 difference);
     error FractionPriceMismatch(uint256 originalPrice);
+    error InvalidAddress();
 
     /* EVENTS */
     event ListingCreated(uint256 indexed listingId, Listing);
@@ -72,6 +78,9 @@ contract Marketplace {
             )
         ) revert InvalidSignature();
 
+        // Create a new ERC20 Token for the user
+        newFT = new FractionToken(l.name, l.symbol, 18);
+
         // append to Storage - Create a struct pointer
         Listing storage li = listings[listingId];
         li.token = l.token;
@@ -81,12 +90,14 @@ contract Marketplace {
         li.deadline = uint88(l.deadline);
         li.owner = msg.sender;
         li.active = true;
+        li.name = l.name;
+        li.symbol = l.symbol;
         li.fractionCount = l.fractionCount;
         li.fractionPrice = l.fractionPrice;
-        li.fractionToken = l.fractionToken;
+        li.fractionToken = address(newFT);
 
         // Mint the equivalent of the amount of the token in ERC20 tokens
-        FractionToken(l.fractionToken).mint(
+        newFT.mint(
             address(li.fractionToken),
             l.fractionPrice * l.fractionCount
         );
@@ -101,6 +112,8 @@ contract Marketplace {
     function executeOrder(uint256 _orderId) public payable {
         if (_orderId >= listingId) revert ListingNotExistent();
         Listing storage order = listings[_orderId];
+        if (order.fractionCount == order.fractionBought)
+            revert AllFractionBought();
         if (order.deadline < block.timestamp) revert ListingExpired();
         if (!order.active) revert ListingNotActive();
         if (order.fractionPrice < msg.value)
@@ -114,9 +127,10 @@ contract Marketplace {
         order.active = false;
 
         // Mint an ERC20 token to the user of the amount the NFT is for.
-        FractionToken(order.fractionToken).mint(msg.sender, msg.value);
+        newFT.mint(msg.sender, msg.value);
+
         // Burn the equivalent of the ERC20 token minted to the caller
-        FractionToken(order.fractionToken).burn(msg.value);
+        newFT.burn(msg.value);
 
         // calculate 0.1% of the purchased amount
         uint platformAmount = (order.fractionPrice * 1) / 1000;
@@ -124,13 +138,17 @@ contract Marketplace {
         // transfer eth
         payable(order.owner).transfer(order.fractionPrice - platformAmount);
 
+        // Increase the count of Fraction bought
+        order.fractionBought = order.fractionBought++;
+
         // Update storage
         emit ListingExecuted(_orderId, order);
     }
 
     function transferMyFraction(uint256 _orderId, address _to) public {
+        if (_to == address(0)) revert InvalidAddress();
         Listing storage order = listings[_orderId];
-        payable(_to).transfer(order.fractionPrice);
+        newFT.transferFrom(msg.sender, _to, order.fractionPrice);
     }
 
     function editOrder(

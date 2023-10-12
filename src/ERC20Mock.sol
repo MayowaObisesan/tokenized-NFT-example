@@ -4,7 +4,11 @@ pragma solidity ^0.8.13;
 import "solmate/tokens/ERC20.sol";
 
 contract FractionToken is ERC20 {
-    constructor() ERC20("Blessed", "BLSD", 18) {
+    constructor(
+        string memory _name,
+        string memory _symbol,
+        uint8 _decimals
+    ) ERC20(_name, _symbol, _decimals) {
         // _mint(msg.sender, 1000000 * 10 ** 18); // Mint 1,000,000 fractionNFT tokens to the contract deployer
     }
 
